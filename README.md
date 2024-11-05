@@ -1,4 +1,4 @@
-# SpaceInvadersPython
+# Space Defenders in Python
 Space Defender: Un clásico juego espacial de disparos espaciales creado con Python y Pygame. ¡Evita asteroides, derrota enemigos y alcanza la puntuación más alta!
 
 **Descripción:**
