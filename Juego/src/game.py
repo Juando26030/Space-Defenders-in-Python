@@ -202,10 +202,28 @@ def game_loop():
             asteroides.clear()
             mostrar_transicion_nivel()
             nivel += 1
+            jugador.balas_disponibles = jugador.max_balas  # Reset de balas
             tiempo_inicio_nivel = pygame.time.get_ticks()
             mostrar_transicion(nivel, niveles.get(nivel, {"tiempo": 180, "puntos": None}))
             nivel_completado = False
             continue
+
+        # Lógica de dificultad por nivel
+        if nivel <= 3:  # Fácil
+            probabilidad_enemigo = 0.02
+            probabilidad_asteroide = 0.03
+            velocidad_enemigo = random.randint(1, 3)
+            velocidad_asteroide = random.randint(2, 4)
+        elif nivel <= 7:  # Media
+            probabilidad_enemigo = 0.04
+            probabilidad_asteroide = 0.05
+            velocidad_enemigo = random.randint(2, 4)
+            velocidad_asteroide = random.randint(3, 5)
+        else:  # Difícil
+            probabilidad_enemigo = 0.08
+            probabilidad_asteroide = 0.1
+            velocidad_enemigo = random.randint(3, 6)
+            velocidad_asteroide = random.randint(4, 7)
 
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
@@ -221,10 +239,15 @@ def game_loop():
             jugador.mover(teclas)
             jugador.dibujar(VENTANA)
 
-        if random.randint(0, 30) == 0:
-            enemigos.append(Enemy())
-        if random.randint(0, 50) == 0:
-            asteroides.append(Asteroid())
+        # Generación de enemigos y asteroides según la dificultad del nivel
+        if random.random() < probabilidad_enemigo:
+            enemigo = Enemy()
+            enemigo.speed = velocidad_enemigo
+            enemigos.append(enemigo)
+        if random.random() < probabilidad_asteroide:
+            asteroide = Asteroid()
+            asteroide.speed = velocidad_asteroide
+            asteroides.append(asteroide)
 
         for enemigo in enemigos[:]:
             enemigo.mover()
