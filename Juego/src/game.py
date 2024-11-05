@@ -19,6 +19,7 @@ pygame.display.set_caption("Space Defender")
 # Colores
 NEGRO = (0, 0, 0)
 BLANCO = (255, 255, 255)
+VERDE = (0, 255, 0)
 
 # Variables de juego
 FPS = 60
@@ -33,16 +34,18 @@ niveles = {
     4: {"tiempo": 120, "puntos": None},
     5: {"tiempo": 150, "puntos": None},
     6: {"tiempo": 180, "puntos": 1000},
-    7: {"tiempo": 180, "puntos": 1200},
-    8: {"tiempo": 180, "puntos": 1400},
-    9: {"tiempo": 180, "puntos": 1600},
-    10: {"tiempo": 180, "puntos": 1800}
+    7: {"tiempo": 195, "puntos": 1200},
+    8: {"tiempo": 205, "puntos": 1400},
+    9: {"tiempo": 225, "puntos": 1600},
+    10: {"tiempo": 240, "puntos": 1800}
 }
 
 # Sonidos
 sonido_explosion = cargar_sonido("explosion.wav")
 sonido_game_over = cargar_sonido("game_over.wav")
 intro_music = cargar_sonido("intro_music.wav")
+next_level_sound = cargar_sonido("next_level.wav")
+level_complete_sound = cargar_sonido("level_complete.wav")
 
 # Cargar y reproducir la música de fondo usando mixer.music para poder pausar
 pygame.mixer.music.load("../assets/sounds/back_music.wav")
@@ -84,30 +87,51 @@ def mostrar_balas(jugador):
     # Indicador de recarga (barra que crece)
     if jugador.balas_disponibles == 0:
         tiempo_pasado = pygame.time.get_ticks() - jugador.ultimo_disparo
-        # Dibuja una barra de progreso de recarga
         ancho_barra = min(int((tiempo_pasado / jugador.tiempo_recarga) * 45), 45)
         pygame.draw.rect(VENTANA, (255, 255, 0), (750, 55, ancho_barra, 10))
 
 
+def mostrar_tiempo_restante(tiempo_restante):
+    """Muestra el temporizador en la parte inferior central de la pantalla."""
+    fuente = pygame.font.Font(None, 36)
+    color = VERDE if tiempo_restante <= 0 else BLANCO
+    texto_tiempo = fuente.render(f"Tiempo restante: {max(tiempo_restante, 0)}s", True, color)
+    VENTANA.blit(texto_tiempo, (ANCHO // 2 - texto_tiempo.get_width() // 2, ALTO - 40))
+
+
+def mostrar_transicion_nivel():
+    """Reproduce sonido de transición al pasar al siguiente nivel."""
+    next_level_sound.play()  # Sonido del siguiente nivel
+    pygame.mixer.music.pause()  # Pausar música de fondo
+
+    # Mostramos el número de nivel y condiciones
+    VENTANA.fill(NEGRO)
+    fuente = pygame.font.Font(None, 50)
+    texto_transicion = fuente.render("¡Nivel Completado!", True, VERDE)
+    VENTANA.blit(texto_transicion, (ANCHO // 2 - texto_transicion.get_width() // 2, ALTO // 2))
+    pygame.display.flip()
+    pygame.time.delay(2000)  # Pausa para transición de 2 segundos
+
+    pygame.mixer.music.unpause()  # Reanudar música de fondo
+
+
 def mostrar_transicion(nivel, requisitos):
-    """Muestra la transición de nivel y sus requisitos."""
+    """Pantalla de transición inicial de nivel, con la música de introducción."""
     pygame.mixer.music.pause()  # Pausar la música de fondo
-    if intro_music:
-        intro_music.play()  # Reproducir música de transición
+    intro_music.play()  # Reproducir música de introducción al inicio del nivel
 
     VENTANA.fill(NEGRO)
     fuente = pygame.font.Font(None, 50)
     texto_nivel = fuente.render(f"Nivel {nivel}", True, BLANCO)
     texto_condiciones = fuente.render(
-        f"Objetivo: {requisitos['tiempo']}s o {requisitos['puntos']} puntos" if requisitos[
-            "puntos"] else f"Sobrevive {requisitos['tiempo']}s",
-        True, BLANCO
+        f"Objetivo: {requisitos['tiempo']}s o {requisitos['puntos']} puntos" if requisitos["puntos"]
+        else f"Sobrevive {requisitos['tiempo']}s", True, BLANCO
     )
 
     VENTANA.blit(texto_nivel, (ANCHO // 2 - texto_nivel.get_width() // 2, ALTO // 2 - 50))
     VENTANA.blit(texto_condiciones, (ANCHO // 2 - texto_condiciones.get_width() // 2, ALTO // 2 + 10))
     pygame.display.flip()
-    pygame.time.delay(4000)  # Pausa de 5 segundos para transición
+    pygame.time.delay(4000)  # Pausa de 4 segundos para transición
 
     pygame.mixer.music.unpause()  # Reanudar música de fondo
 
@@ -154,8 +178,8 @@ def game_loop():
     jugador_vivo = True
     corriendo = True
     tiempo_inicio_nivel = pygame.time.get_ticks()  # Tiempo de inicio del nivel
+    nivel_completado = False
 
-    # Mostrar el letrero de "Nivel 1" al iniciar el juego
     mostrar_transicion(nivel, niveles[nivel])
 
     while corriendo:
@@ -166,17 +190,21 @@ def game_loop():
         tiempo_actual = pygame.time.get_ticks()
         tiempo_supervivencia = (tiempo_actual - tiempo_inicio_nivel) // 1000
 
-        # Comprobación para subir de nivel
         requisitos = niveles.get(nivel, {"tiempo": 180, "puntos": puntaje + 200})
         tiempo_objetivo = requisitos["tiempo"]
         puntos_objetivo = requisitos.get("puntos")
+        tiempo_restante = tiempo_objetivo - tiempo_supervivencia
 
-        if (tiempo_supervivencia >= tiempo_objetivo) or (puntos_objetivo and puntaje >= puntos_objetivo):
-            nivel += 1
-            tiempo_inicio_nivel = tiempo_actual
-            mostrar_transicion(nivel, niveles.get(nivel, {"tiempo": 180, "puntos": None}))
+        if tiempo_restante <= 0 and not nivel_completado:
+            nivel_completado = True
+            level_complete_sound.play()  # Reproducir sonido de nivel completado
             enemigos.clear()
             asteroides.clear()
+            mostrar_transicion_nivel()
+            nivel += 1
+            tiempo_inicio_nivel = pygame.time.get_ticks()
+            mostrar_transicion(nivel, niveles.get(nivel, {"tiempo": 180, "puntos": None}))
+            nivel_completado = False
             continue
 
         for evento in pygame.event.get():
@@ -188,19 +216,16 @@ def game_loop():
                     if nueva_bala:
                         balas.append(nueva_bala)
 
-        jugador.recargar()  # Verificar si el jugador puede recargar balas
-
+        jugador.recargar()
         if jugador_vivo:
             jugador.mover(teclas)
             jugador.dibujar(VENTANA)
 
-        # Generación de enemigos y asteroides
         if random.randint(0, 30) == 0:
             enemigos.append(Enemy())
         if random.randint(0, 50) == 0:
             asteroides.append(Asteroid())
 
-        # Mover enemigos y asteroides, detectar colisiones
         for enemigo in enemigos[:]:
             enemigo.mover()
             enemigo.dibujar(VENTANA)
@@ -242,9 +267,9 @@ def game_loop():
             else:
                 corriendo = False
 
-        # Mostrar marcador, balas y actualizar pantalla
         mostrar_marcador(puntaje, nivel)
         mostrar_balas(jugador)
+        mostrar_tiempo_restante(tiempo_restante)
         pygame.display.flip()
 
     pygame.quit()
