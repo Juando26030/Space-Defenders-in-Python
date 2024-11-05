@@ -23,7 +23,6 @@ BLANCO = (255, 255, 255)
 # Variables de juego
 FPS = 60
 clock = pygame.time.Clock()
-nivel = 1
 puntaje = 0
 
 # Requisitos de nivel: tiempo en segundos y puntos requeridos
@@ -34,21 +33,21 @@ niveles = {
     4: {"tiempo": 120, "puntos": None},
     5: {"tiempo": 150, "puntos": None},
     6: {"tiempo": 180, "puntos": 1000},
-    7: {"tiempo": 195, "puntos": 1200},
-    8: {"tiempo": 210, "puntos": 1400},
-    9: {"tiempo": 225, "puntos": 1700},
-    10: {"tiempo": 240, "puntos": 2000}
+    7: {"tiempo": 180, "puntos": 1200},
+    8: {"tiempo": 180, "puntos": 1400},
+    9: {"tiempo": 180, "puntos": 1600},
+    10: {"tiempo": 180, "puntos": 1800}
 }
 
 # Sonidos
 sonido_explosion = cargar_sonido("explosion.wav")
 sonido_game_over = cargar_sonido("game_over.wav")
-musica_fondo = cargar_sonido("back_music.wav")
+intro_music = cargar_sonido("intro_music.wav")
 
-# Reproducir música de fondo en bucle con volumen bajo
-if musica_fondo:
-    musica_fondo.set_volume(0.3)  # Volumen más bajo
-    musica_fondo.play(loops=-1)  # Reproduce en bucle
+# Cargar y reproducir la música de fondo usando mixer.music para poder pausar
+pygame.mixer.music.load("../assets/sounds/back_music.wav")
+pygame.mixer.music.set_volume(0.3)
+pygame.mixer.music.play(loops=-1)
 
 
 def main_menu():
@@ -92,6 +91,10 @@ def mostrar_balas(jugador):
 
 def mostrar_transicion(nivel, requisitos):
     """Muestra la transición de nivel y sus requisitos."""
+    pygame.mixer.music.pause()  # Pausar la música de fondo
+    if intro_music:
+        intro_music.play()  # Reproducir música de transición
+
     VENTANA.fill(NEGRO)
     fuente = pygame.font.Font(None, 50)
     texto_nivel = fuente.render(f"Nivel {nivel}", True, BLANCO)
@@ -104,11 +107,13 @@ def mostrar_transicion(nivel, requisitos):
     VENTANA.blit(texto_nivel, (ANCHO // 2 - texto_nivel.get_width() // 2, ALTO // 2 - 50))
     VENTANA.blit(texto_condiciones, (ANCHO // 2 - texto_condiciones.get_width() // 2, ALTO // 2 + 10))
     pygame.display.flip()
-    pygame.time.delay(2500)  # Pausa de 2.5 segundos
+    pygame.time.delay(4000)  # Pausa de 5 segundos para transición
+
+    pygame.mixer.music.unpause()  # Reanudar música de fondo
+
 
 def game_over_screen():
-    if musica_fondo:
-        musica_fondo.stop()  # Detenemos la música de fondo
+    pygame.mixer.music.stop()  # Detenemos la música de fondo
     if sonido_game_over:
         sonido_game_over.play()  # Sonido de game over
 
@@ -131,8 +136,7 @@ def game_over_screen():
                 return False
             if evento.type == pygame.KEYDOWN:
                 if evento.key == pygame.K_r:
-                    if musica_fondo:
-                        musica_fondo.play(loops=-1)  # Reiniciar música de fondo
+                    pygame.mixer.music.play(loops=-1)  # Reiniciar música de fondo
                     return True
                 elif evento.key == pygame.K_ESCAPE:
                     pygame.quit()
@@ -150,6 +154,9 @@ def game_loop():
     jugador_vivo = True
     corriendo = True
     tiempo_inicio_nivel = pygame.time.get_ticks()  # Tiempo de inicio del nivel
+
+    # Mostrar el letrero de "Nivel 1" al iniciar el juego
+    mostrar_transicion(nivel, niveles[nivel])
 
     while corriendo:
         clock.tick(FPS)
