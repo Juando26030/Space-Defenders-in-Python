@@ -3,6 +3,8 @@ from src.player import Player
 from src.enemy import Enemy
 from src.asteroid import Asteroid
 from src.bullet import Bullet
+from src.bee import Bee
+from src.fireball import Fireball
 from src.utils import cargar_sonido
 import random
 
@@ -79,12 +81,10 @@ def mostrar_marcador(puntaje, nivel):
 
 
 def mostrar_balas(jugador):
-    """Muestra el estado de las balas en la esquina superior derecha."""
     for i in range(jugador.max_balas):
         color = (0, 255, 0) if i < jugador.balas_disponibles else (255, 0, 0)
         pygame.draw.circle(VENTANA, color, (760 + i * 15, 40), 5)
 
-    # Indicador de recarga (barra que crece)
     if jugador.balas_disponibles == 0:
         tiempo_pasado = pygame.time.get_ticks() - jugador.ultimo_disparo
         ancho_barra = min(int((tiempo_pasado / jugador.tiempo_recarga) * 45), 45)
@@ -92,7 +92,6 @@ def mostrar_balas(jugador):
 
 
 def mostrar_tiempo_restante(tiempo_restante):
-    """Muestra el temporizador en la parte inferior central de la pantalla."""
     fuente = pygame.font.Font(None, 36)
     color = VERDE if tiempo_restante <= 0 else BLANCO
     texto_tiempo = fuente.render(f"Tiempo restante: {max(tiempo_restante, 0)}s", True, color)
@@ -100,26 +99,20 @@ def mostrar_tiempo_restante(tiempo_restante):
 
 
 def mostrar_transicion_nivel():
-    """Reproduce sonido de transición al pasar al siguiente nivel."""
-    next_level_sound.play()  # Sonido del siguiente nivel
-    pygame.mixer.music.pause()  # Pausar música de fondo
-
-    # Mostramos el número de nivel y condiciones
+    next_level_sound.play()
+    pygame.mixer.music.pause()
     VENTANA.fill(NEGRO)
     fuente = pygame.font.Font(None, 50)
     texto_transicion = fuente.render("¡Nivel Completado!", True, VERDE)
     VENTANA.blit(texto_transicion, (ANCHO // 2 - texto_transicion.get_width() // 2, ALTO // 2))
     pygame.display.flip()
-    pygame.time.delay(2000)  # Pausa para transición de 2 segundos
-
-    pygame.mixer.music.unpause()  # Reanudar música de fondo
+    pygame.time.delay(2000)
+    pygame.mixer.music.unpause()
 
 
 def mostrar_transicion(nivel, requisitos):
-    """Pantalla de transición inicial de nivel, con la música de introducción."""
-    pygame.mixer.music.pause()  # Pausar la música de fondo
-    intro_music.play()  # Reproducir música de introducción al inicio del nivel
-
+    pygame.mixer.music.pause()
+    intro_music.play()
     VENTANA.fill(NEGRO)
     fuente = pygame.font.Font(None, 50)
     texto_nivel = fuente.render(f"Nivel {nivel}", True, BLANCO)
@@ -131,15 +124,14 @@ def mostrar_transicion(nivel, requisitos):
     VENTANA.blit(texto_nivel, (ANCHO // 2 - texto_nivel.get_width() // 2, ALTO // 2 - 50))
     VENTANA.blit(texto_condiciones, (ANCHO // 2 - texto_condiciones.get_width() // 2, ALTO // 2 + 10))
     pygame.display.flip()
-    pygame.time.delay(4000)  # Pausa de 4 segundos para transición
-
-    pygame.mixer.music.unpause()  # Reanudar música de fondo
+    pygame.time.delay(4000)
+    pygame.mixer.music.unpause()
 
 
 def game_over_screen():
-    pygame.mixer.music.stop()  # Detenemos la música de fondo
+    pygame.mixer.music.stop()
     if sonido_game_over:
-        sonido_game_over.play()  # Sonido de game over
+        sonido_game_over.play()
 
     VENTANA.fill(NEGRO)
     fuente = pygame.font.Font(None, 50)
@@ -160,7 +152,7 @@ def game_over_screen():
                 return False
             if evento.type == pygame.KEYDOWN:
                 if evento.key == pygame.K_r:
-                    pygame.mixer.music.play(loops=-1)  # Reiniciar música de fondo
+                    pygame.mixer.music.play(loops=-1)
                     return True
                 elif evento.key == pygame.K_ESCAPE:
                     pygame.quit()
@@ -172,12 +164,14 @@ def game_loop():
     jugador = Player(ANCHO // 2, ALTO - 50)
     enemigos = []
     asteroides = []
+    abejas = []
+    bolas_fuego = []
     balas = []
 
     nivel = 1
     jugador_vivo = True
     corriendo = True
-    tiempo_inicio_nivel = pygame.time.get_ticks()  # Tiempo de inicio del nivel
+    tiempo_inicio_nivel = pygame.time.get_ticks()
     nivel_completado = False
 
     mostrar_transicion(nivel, niveles[nivel])
@@ -197,29 +191,30 @@ def game_loop():
 
         if tiempo_restante <= 0 and not nivel_completado:
             nivel_completado = True
-            level_complete_sound.play()  # Reproducir sonido de nivel completado
+            level_complete_sound.play()
             enemigos.clear()
             asteroides.clear()
+            abejas.clear()
+            bolas_fuego.clear()
             mostrar_transicion_nivel()
             nivel += 1
-            jugador.balas_disponibles = jugador.max_balas  # Reset de balas
+            jugador.balas_disponibles = jugador.max_balas
             tiempo_inicio_nivel = pygame.time.get_ticks()
             mostrar_transicion(nivel, niveles.get(nivel, {"tiempo": 180, "puntos": None}))
             nivel_completado = False
             continue
 
-        # Lógica de dificultad por nivel
-        if nivel <= 3:  # Fácil
+        if nivel <= 3:
             probabilidad_enemigo = 0.02
             probabilidad_asteroide = 0.03
             velocidad_enemigo = random.randint(1, 3)
             velocidad_asteroide = random.randint(2, 4)
-        elif nivel <= 7:  # Media
+        elif nivel <= 7:
             probabilidad_enemigo = 0.04
             probabilidad_asteroide = 0.05
             velocidad_enemigo = random.randint(2, 4)
             velocidad_asteroide = random.randint(3, 5)
-        else:  # Difícil
+        else:
             probabilidad_enemigo = 0.08
             probabilidad_asteroide = 0.1
             velocidad_enemigo = random.randint(3, 6)
@@ -239,7 +234,6 @@ def game_loop():
             jugador.mover(teclas)
             jugador.dibujar(VENTANA)
 
-        # Generación de enemigos y asteroides según la dificultad del nivel
         if random.random() < probabilidad_enemigo:
             enemigo = Enemy()
             enemigo.speed = velocidad_enemigo
@@ -248,6 +242,55 @@ def game_loop():
             asteroide = Asteroid()
             asteroide.speed = velocidad_asteroide
             asteroides.append(asteroide)
+        if nivel >= 4 and random.random() < 0.02:
+            abeja = Bee()
+            abejas.append(abeja)
+        if nivel >= 7 and random.random() < 0.01:
+            fireball = Fireball()
+            bolas_fuego.append(fireball)
+
+        # Lista temporal para almacenar balas que deben ser eliminadas
+        balas_a_eliminar = []
+
+        for bala in balas:
+            bala.mover()
+            bala.dibujar(VENTANA)
+            for enemigo in enemigos[:]:
+                if pygame.sprite.collide_mask(bala, enemigo):
+                    enemigos.remove(enemigo)
+                    puntaje += 10
+                    if sonido_explosion:
+                        sonido_explosion.play()
+                    balas_a_eliminar.append(bala)  # Marcar bala para eliminar
+                    break
+            for asteroide in asteroides[:]:
+                if pygame.sprite.collide_mask(bala, asteroide):
+                    asteroides.remove(asteroide)
+                    puntaje += 10
+                    if sonido_explosion:
+                        sonido_explosion.play()
+                    balas_a_eliminar.append(bala)
+                    break
+            for abeja in abejas[:]:
+                if pygame.sprite.collide_mask(bala, abeja):
+                    if abeja.recibir_dano():
+                        abejas.remove(abeja)
+                        puntaje += 30
+                    balas_a_eliminar.append(bala)
+                    break
+            for fireball in bolas_fuego[:]:
+                if pygame.sprite.collide_mask(bala, fireball):
+                    bolas_fuego.remove(fireball)
+                    puntaje += 50
+                    balas_a_eliminar.append(bala)
+                    break
+            if bala.rect.bottom < 0:
+                balas_a_eliminar.append(bala)
+
+        # Eliminar las balas marcadas al final del ciclo
+        for bala in balas_a_eliminar:
+            if bala in balas:  # Verificar que la bala aún esté en la lista
+                balas.remove(bala)
 
         for enemigo in enemigos[:]:
             enemigo.mover()
@@ -261,27 +304,17 @@ def game_loop():
             if jugador_vivo and pygame.sprite.collide_mask(jugador, asteroide):
                 jugador_vivo = False
 
-        for bala in balas[:]:
-            bala.mover()
-            bala.dibujar(VENTANA)
-            for enemigo in enemigos[:]:
-                if pygame.sprite.collide_mask(bala, enemigo):
-                    enemigos.remove(enemigo)
-                    balas.remove(bala)
-                    puntaje += 10
-                    if sonido_explosion:
-                        sonido_explosion.play()
-                    break
-            for asteroide in asteroides[:]:
-                if pygame.sprite.collide_mask(bala, asteroide):
-                    asteroides.remove(asteroide)
-                    balas.remove(bala)
-                    puntaje += 10
-                    if sonido_explosion:
-                        sonido_explosion.play()
-                    break
-            if bala.rect.bottom < 0:
-                balas.remove(bala)
+        for abeja in abejas[:]:
+            abeja.mover()
+            abeja.dibujar(VENTANA)
+            if jugador_vivo and pygame.sprite.collide_mask(jugador, abeja):
+                jugador_vivo = False
+
+        for fireball in bolas_fuego[:]:
+            fireball.mover()
+            fireball.dibujar(VENTANA)
+            if jugador_vivo and pygame.sprite.collide_mask(jugador, fireball):
+                jugador_vivo = False
 
         if not jugador_vivo:
             if game_over_screen():
@@ -296,6 +329,7 @@ def game_loop():
         pygame.display.flip()
 
     pygame.quit()
+
 
 
 if __name__ == "__main__":
