@@ -22,24 +22,25 @@ pygame.display.set_caption("Space Defender")
 NEGRO = (0, 0, 0)
 BLANCO = (255, 255, 255)
 VERDE = (0, 255, 0)
+AMARILLO = (255, 255, 0)
 
 # Variables de juego
 FPS = 60
 clock = pygame.time.Clock()
 puntaje = 0
 
-# Requisitos de nivel: tiempo en segundos y puntos requeridos
+# Requisitos de nivel: tiempo en segundos y conteo de enemigos a destruir
 niveles = {
-    1: {"tiempo": 30, "puntos": None},
-    2: {"tiempo": 60, "puntos": None},
-    3: {"tiempo": 90, "puntos": None},
-    4: {"tiempo": 120, "puntos": None},
-    5: {"tiempo": 150, "puntos": None},
-    6: {"tiempo": 180, "puntos": 1000},
-    7: {"tiempo": 195, "puntos": 1200},
-    8: {"tiempo": 205, "puntos": 1400},
-    9: {"tiempo": 225, "puntos": 1600},
-    10: {"tiempo": 240, "puntos": 1800}
+    1: {"tiempo": 20, "enemigos": 10, "abejas": 0, "bolas_fuego": 0},
+    2: {"tiempo": 30, "enemigos": 30, "abejas": 0, "bolas_fuego": 0},
+    3: {"tiempo": 45, "enemigos": 50, "abejas": 0, "bolas_fuego": 0},
+    4: {"tiempo": 60, "enemigos": 70, "abejas": 5, "bolas_fuego": 0},
+    5: {"tiempo": 80, "enemigos": 85, "abejas": 15, "bolas_fuego": 0},
+    6: {"tiempo": 105, "enemigos": 100, "abejas": 30, "bolas_fuego": 0},
+    7: {"tiempo": 120, "enemigos": 120, "abejas": 35, "bolas_fuego": 5},
+    8: {"tiempo": 140, "enemigos": 145, "abejas": 50, "bolas_fuego": 15},
+    9: {"tiempo": 165, "enemigos": 170, "abejas": 45, "bolas_fuego": 15},
+    10: {"tiempo": 180, "enemigos": 200, "abejas": 50, "bolas_fuego": 20}
 }
 
 # Sonidos
@@ -117,7 +118,7 @@ def mostrar_transicion(nivel, requisitos):
     fuente = pygame.font.Font(None, 50)
     texto_nivel = fuente.render(f"Nivel {nivel}", True, BLANCO)
     texto_condiciones = fuente.render(
-        f"Objetivo: {requisitos['tiempo']}s o {requisitos['puntos']} puntos" if requisitos["puntos"]
+        f"Objetivo: {requisitos['tiempo']}s y enemigos" if requisitos["enemigos"]
         else f"Sobrevive {requisitos['tiempo']}s", True, BLANCO
     )
 
@@ -159,6 +160,17 @@ def game_over_screen():
                     return False
 
 
+def mostrar_contador(enemigos_destruidos, abejas_destruidas, bolas_fuego_destruidas):
+    fuente = pygame.font.Font(None, 36)
+    texto_enemigos = fuente.render(f"Enemigos: {enemigos_destruidos}", True, AMARILLO)
+    texto_abejas = fuente.render(f"Abejas: {abejas_destruidas}", True, AMARILLO)
+    texto_bolas_fuego = fuente.render(f"Bolas de Fuego: {bolas_fuego_destruidas}", True, AMARILLO)
+
+    VENTANA.blit(texto_enemigos, (10, 10))
+    VENTANA.blit(texto_abejas, (10, 40))
+    VENTANA.blit(texto_bolas_fuego, (10, 70))
+
+
 def game_loop():
     global puntaje
     jugador = Player(ANCHO // 2, ALTO - 50)
@@ -174,6 +186,11 @@ def game_loop():
     tiempo_inicio_nivel = pygame.time.get_ticks()
     nivel_completado = False
 
+    # Contadores de enemigos destruidos
+    enemigos_destruidos = 0
+    abejas_destruidas = 0
+    bolas_fuego_destruidas = 0
+
     mostrar_transicion(nivel, niveles[nivel])
 
     while corriendo:
@@ -184,12 +201,19 @@ def game_loop():
         tiempo_actual = pygame.time.get_ticks()
         tiempo_supervivencia = (tiempo_actual - tiempo_inicio_nivel) // 1000
 
-        requisitos = niveles.get(nivel, {"tiempo": 180, "puntos": puntaje + 200})
+        requisitos = niveles.get(nivel, {"tiempo": 180, "enemigos": puntaje + 200})
         tiempo_objetivo = requisitos["tiempo"]
-        puntos_objetivo = requisitos.get("puntos")
+        enemigos_objetivo = requisitos["enemigos"]
+        abejas_objetivo = requisitos["abejas"]
+        bolas_fuego_objetivo = requisitos["bolas_fuego"]
         tiempo_restante = tiempo_objetivo - tiempo_supervivencia
 
-        if tiempo_restante <= 0 and not nivel_completado:
+        # Comprobar si el nivel está completo
+        if tiempo_restante <= 0 and (
+            enemigos_destruidos >= enemigos_objetivo and
+            abejas_destruidas >= abejas_objetivo and
+            bolas_fuego_destruidas >= bolas_fuego_objetivo
+        ):
             nivel_completado = True
             level_complete_sound.play()
             enemigos.clear()
@@ -198,12 +222,15 @@ def game_loop():
             bolas_fuego.clear()
             mostrar_transicion_nivel()
             nivel += 1
-            jugador.balas_disponibles = jugador.max_balas
             tiempo_inicio_nivel = pygame.time.get_ticks()
+            enemigos_destruidos = 0
+            abejas_destruidas = 0
+            bolas_fuego_destruidas = 0
             mostrar_transicion(nivel, niveles.get(nivel, {"tiempo": 180, "puntos": None}))
             nivel_completado = False
             continue
 
+        # Dificultad escalada
         if nivel <= 3:
             probabilidad_enemigo = 0.02
             probabilidad_asteroide = 0.03
@@ -249,7 +276,6 @@ def game_loop():
             fireball = Fireball()
             bolas_fuego.append(fireball)
 
-        # Lista temporal para almacenar balas que deben ser eliminadas
         balas_a_eliminar = []
 
         for bala in balas:
@@ -258,14 +284,16 @@ def game_loop():
             for enemigo in enemigos[:]:
                 if pygame.sprite.collide_mask(bala, enemigo):
                     enemigos.remove(enemigo)
+                    enemigos_destruidos += 1
                     puntaje += 10
                     if sonido_explosion:
                         sonido_explosion.play()
-                    balas_a_eliminar.append(bala)  # Marcar bala para eliminar
+                    balas_a_eliminar.append(bala)
                     break
             for asteroide in asteroides[:]:
                 if pygame.sprite.collide_mask(bala, asteroide):
                     asteroides.remove(asteroide)
+                    enemigos_destruidos += 1
                     puntaje += 10
                     if sonido_explosion:
                         sonido_explosion.play()
@@ -275,21 +303,22 @@ def game_loop():
                 if pygame.sprite.collide_mask(bala, abeja):
                     if abeja.recibir_dano():
                         abejas.remove(abeja)
+                        abejas_destruidas += 1
                         puntaje += 30
                     balas_a_eliminar.append(bala)
                     break
             for fireball in bolas_fuego[:]:
                 if pygame.sprite.collide_mask(bala, fireball):
                     bolas_fuego.remove(fireball)
+                    bolas_fuego_destruidas += 1
                     puntaje += 50
                     balas_a_eliminar.append(bala)
                     break
             if bala.rect.bottom < 0:
                 balas_a_eliminar.append(bala)
 
-        # Eliminar las balas marcadas al final del ciclo
         for bala in balas_a_eliminar:
-            if bala in balas:  # Verificar que la bala aún esté en la lista
+            if bala in balas:
                 balas.remove(bala)
 
         for enemigo in enemigos[:]:
@@ -326,10 +355,10 @@ def game_loop():
         mostrar_marcador(puntaje, nivel)
         mostrar_balas(jugador)
         mostrar_tiempo_restante(tiempo_restante)
+        mostrar_contador(enemigos_destruidos, abejas_destruidas, bolas_fuego_destruidas)
         pygame.display.flip()
 
     pygame.quit()
-
 
 
 if __name__ == "__main__":
