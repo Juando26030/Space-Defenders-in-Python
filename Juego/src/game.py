@@ -137,7 +137,8 @@ def main_menu():
     opciones = [
         "1. Modo Historia",
         "2. Ver mis Puntajes",
-        "3. Salir"
+        "3. Niveles",  # Nueva opción "Niveles"
+        "4. Salir"
     ]
 
     for i, opcion in enumerate(opciones):
@@ -157,6 +158,8 @@ def main_menu():
                 elif evento.key == pygame.K_2:
                     return "puntajes"
                 elif evento.key == pygame.K_3:
+                    return "niveles"  # Selección del menú de niveles
+                elif evento.key == pygame.K_4:
                     pygame.quit()
                     sys.exit()
             elif evento.type == pygame.MOUSEBUTTONDOWN:
@@ -166,7 +169,63 @@ def main_menu():
                         ANCHO // 2 - 100, ALTO // 2 - 100 + i * 60, 200, 50
                     )
                     if texto_rect.collidepoint(x, y):
-                        return ["historia", "puntajes", "salir"][i]
+                        return ["historia", "puntajes", "niveles", "salir"][i]
+
+
+# Nueva función para seleccionar niveles con dos columnas
+def menu_niveles():
+    VENTANA.fill(NEGRO)
+    fuente = pygame.font.Font(None, 50)
+
+    # Lista de niveles del 1 al 10 dividida en dos columnas
+    niveles = [f"Nivel {i}" for i in range(1, 11)]
+
+    # Definir la posición inicial para cada columna
+    columna_izquierda_x = ANCHO // 4
+    columna_derecha_x = 3 * ANCHO // 4
+    y_inicial = ALTO // 4
+    espacio_entre_niveles = 60
+
+    # Mostrar los primeros 5 niveles en la columna izquierda
+    for i in range(5):
+        texto = fuente.render(niveles[i], True, BLANCO)
+        VENTANA.blit(texto, (columna_izquierda_x - texto.get_width() // 2, y_inicial + i * espacio_entre_niveles))
+
+    # Mostrar los últimos 5 niveles en la columna derecha
+    for i in range(5, 10):
+        texto = fuente.render(niveles[i], True, BLANCO)
+        VENTANA.blit(texto, (columna_derecha_x - texto.get_width() // 2, y_inicial + (i - 5) * espacio_entre_niveles))
+
+    pygame.display.flip()
+
+    while True:
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif evento.type == pygame.MOUSEBUTTONDOWN:
+                if evento.button == 1:  # Detectar solo el clic izquierdo
+                    x, y = pygame.mouse.get_pos()
+
+                    # Verificar si el clic está en la columna izquierda
+                    for i in range(5):
+                        texto_rect = pygame.Rect(
+                            columna_izquierda_x - 100, y_inicial + i * espacio_entre_niveles, 200, 50
+                        )
+                        if texto_rect.collidepoint(x, y):
+                            return i + 1  # Devuelve el número del nivel seleccionado (1 a 5)
+
+                    # Verificar si el clic está en la columna derecha
+                    for i in range(5, 10):
+                        texto_rect = pygame.Rect(
+                            columna_derecha_x - 100, y_inicial + (i - 5) * espacio_entre_niveles, 200, 50
+                        )
+                        if texto_rect.collidepoint(x, y):
+                            return i + 1  # Devuelve el número del nivel seleccionado (6 a 10)
+
+            elif evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_ESCAPE:
+                    return None  # Regresa al menú principal si se presiona ESC
 
 
 def mostrar_marcador(puntaje, nivel):
@@ -294,6 +353,7 @@ def game_loop(nivel_inicial=1):
     jugador_vivo = True
     corriendo = True
     nivel_completado = False
+    juego_pausado = False  # Variable para controlar si el juego está en pausa
 
     # Contadores de enemigos destruidos
     enemigos_destruidos = 0
@@ -308,6 +368,26 @@ def game_loop(nivel_inicial=1):
             clock.tick(FPS)
             VENTANA.fill(NEGRO)
             teclas = pygame.key.get_pressed()
+
+            # Manejo de eventos de entrada
+            for evento in pygame.event.get():
+                if evento.type == pygame.QUIT:
+                    corriendo = False
+                if evento.type == pygame.KEYDOWN:
+                    if evento.key == pygame.K_RETURN:  # Si se presiona "Enter", cambiar el estado de pausa
+                        juego_pausado = not juego_pausado
+                        if juego_pausado:
+                            mostrar_pausa()  # Mostrar el mensaje de pausa
+                        else:
+                            quitar_pausa()  # Quitar el mensaje de pausa
+                    if evento.key == pygame.K_SPACE and not juego_pausado and jugador_vivo:  # Disparar solo si no está en pausa
+                        nueva_bala = jugador.shoot()
+                        if nueva_bala:
+                            balas.append(nueva_bala)
+
+            # Si el juego está en pausa, no actualizar el juego, solo continuar esperando
+            if juego_pausado:
+                continue
 
             tiempo_actual = pygame.time.get_ticks()
             tiempo_supervivencia = (tiempo_actual - tiempo_inicio_nivel) // 1000
@@ -356,16 +436,6 @@ def game_loop(nivel_inicial=1):
                 probabilidad_asteroide = 0.1
                 velocidad_enemigo = random.randint(3, 6)
                 velocidad_asteroide = random.randint(4, 7)
-
-            # Manejo de eventos de entrada
-            for evento in pygame.event.get():
-                if evento.type == pygame.QUIT:
-                    corriendo = False
-                if evento.type == pygame.KEYDOWN:
-                    if evento.key == pygame.K_SPACE and jugador_vivo:
-                        nueva_bala = jugador.shoot()
-                        if nueva_bala:
-                            balas.append(nueva_bala)
 
             # Recargar balas del jugador
             jugador.recargar()
@@ -480,10 +550,27 @@ def game_loop(nivel_inicial=1):
     pygame.quit()
 
 
-# Ejecución
+# Función para mostrar el mensaje de "Pausa"
+def mostrar_pausa():
+    fuente = pygame.font.Font(None, 70)
+    texto_pausa = fuente.render("Pausa", True, BLANCO)
+    VENTANA.blit(texto_pausa, (ANCHO // 2 - texto_pausa.get_width() // 2, ALTO // 2 - texto_pausa.get_height() // 2))
+    pygame.display.flip()
+
+# Función para quitar el mensaje de "Pausa"
+def quitar_pausa():
+    VENTANA.fill(NEGRO)  # Limpiar la pantalla
+    pygame.display.flip()
+
+
+# Ejecución del juego
 while True:
     seleccion = main_menu()
     if seleccion == "historia":
-        game_loop()
+        game_loop()  # Comenzar desde el nivel 1
     elif seleccion == "puntajes":
         ver_puntajes()
+    elif seleccion == "niveles":
+        nivel_seleccionado = menu_niveles()
+        if nivel_seleccionado:
+            game_loop(nivel_inicial=nivel_seleccionado)  # Comenzar desde el nivel seleccionado
